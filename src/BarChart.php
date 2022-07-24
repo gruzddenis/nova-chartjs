@@ -2,9 +2,9 @@
 
 namespace Coroowicaksono\ChartJsIntegration;
 
-use Laravel\Nova\Card;
+use Laravel\Nova\Metrics\Metric;
 
-class BarChart extends Card
+class BarChart extends Metric
 {
     /**
      * The width of the card (1/3, 1/2, or full).
@@ -62,11 +62,6 @@ class BarChart extends Card
     public function col_xaxis(string $col_xaxis): self
     {
         return $this->withMeta(['col_xaxis' => $col_xaxis]);
-    }
-
-    public function uriKey(string $uriKey)
-    {
-        return $this->withMeta(['uriKey' => $uriKey]);
     }
 
     public function join(string $joinTable, string $joinColumnFirst, string $joinEqual, string $joinColumnSecond): self
