@@ -1,7 +1,7 @@
 <template>
     <card class="p-10">
       <div class="stay-right">
-        <a @click="fillData()" class="btn-refresh" v-show="buttonRefresh">
+        <a @click="fetch()" class="btn-refresh" v-show="buttonRefresh">
           <i class="fas fa-sync"></i>
         </a>
         <a @click="reloadPage()" class="btn-refresh" v-show="buttonReload">
@@ -10,7 +10,7 @@
         <a :href="externalLink" :target="externalLinkIn" class="btn-external" v-show="btnExtLink">
           <i class="fas fa-external-link-alt"></i>
         </a>
-        <select @change="fillData()" v-model="advanceFilterSelected" v-show="showAdvanceFilter" class="select-box-sm ml-auto min-w-24 h-6 text-xs appearance-none bg-40 pl-2 pr-6 active:outline-none active:shadow-outline focus:outline-none focus:shadow-outline">
+        <select @change="fetch()" v-model="advanceFilterSelected" v-show="showAdvanceFilter" class="select-box-sm ml-auto min-w-24 h-6 text-xs appearance-none bg-40 pl-2 pr-6 active:outline-none active:shadow-outline focus:outline-none focus:shadow-outline">
           <option v-for="filter in advanceFilter" v-bind:value="filter.value" :key="filter.key">
             {{ filter.text }}
           </option>
@@ -28,6 +28,7 @@
 <script>
   import LineChart from '../bar-chart.js'
   import ChartDataLabels from 'chartjs-plugin-datalabels';
+  import {Minimum} from "laravel-nova";
   Chart.plugins.unregister(ChartDataLabels);
 
   export default {
@@ -35,50 +36,39 @@
       LineChart
     },
     data () {
-      this.card.options = this.card.options != undefined ? this.card.options : false;
-
-      // setup btn filter list
-      const btnFilterList = this.card.options.btnFilterList;
-      let filledAdvancedList = [];
-      let i = 0;
-
-      for ( var index in btnFilterList ) {
-        filledAdvancedList[i] = {value: index, text: btnFilterList[index]};
-        i++;
-      }
+      this.card.options = false;
 
       return {
         datacollection: {},
         options: {},
-        buttonRefresh: this.card.options.btnRefresh,
-        buttonReload: this.card.options.btnReload,
-        btnExtLink: this.card.options.extLink != undefined ? true : false,
-        externalLink: this.card.options.extLink,
-        externalLinkIn: this.card.options.extLinkIn != undefined ? this.card.options.extLinkIn : '_self',
-        chartTooltips: this.card.options.tooltips != undefined ? this.card.options.tooltips : undefined,
-        sweetAlert: this.card.options.sweetAlert2 != undefined ? this.card.options.sweetAlert2 : undefined,
-        chartPlugins: this.card.options.plugins != undefined ? this.card.options.plugins : false,
-        chartLayout: this.card.options.layout != undefined ? this.card.options.layout :
-          {
-            padding: {
-              left: 20,
-              right: 20,
-              top: 0,
-              bottom: 10
-            }
-          },
-        chartLegend: this.card.options.legend != undefined ? this.card.options.legend :
-          {
-            display: true,
-            position: 'left',
-            labels: {
-                fontColor: '#7c858e',
-                fontFamily: "'Nunito'"
-            }
-          },
-        showAdvanceFilter: this.card.model == 'custom' || this.card.model == undefined ? false : this.card.options.btnFilter == true ? true : false ,
-        advanceFilterSelected: this.card.options.btnFilterDefault != undefined ? this.card.options.btnFilterDefault : 'QTD',
-        advanceFilter: this.card.options.btnFilterList != undefined ? filledAdvancedList : [
+        loading: false,
+        buttonRefresh: undefined,
+        buttonReload: undefined,
+        btnExtLink: false,
+        externalLink: undefined,
+        externalLinkIn: '_self',
+        chartTooltips: undefined,
+        sweetAlert: undefined,
+        chartPlugins: false,
+        chartLayout: {
+          padding: {
+            left: 20,
+            right: 20,
+            top: 0,
+            bottom: 10
+          }
+        },
+        chartLegend: {
+          display: true,
+          position: 'left',
+          labels: {
+            fontColor: '#7c858e',
+            fontFamily: "'Nunito'"
+          }
+        },
+        showAdvanceFilter: false,
+        advanceFilterSelected: 'QTD',
+        advanceFilter: [
           { text: 'Year to Date', value: 'YTD' },
           { text: 'Quarter to Date', value: 'QTD' },
           { text: 'Month to Date', value: 'MTD' },
@@ -91,17 +81,85 @@
     computed: {
       checkTitle() {
         return this.card.title !== undefined ? this.card.title : 'Chart JS Integration';
+      },
+      metricEndpoint() {
+        return `/nova-api/metrics/${this.card.uriKey}`;
       }
     },
     props: [
         'card'
     ],
     mounted () {
-      this.fillData();
+      this.fetch();
     },
     methods: {
+      fetch() {
+        this.loading = true;
+        Minimum(Nova.request().get(`${this.metricEndpoint}`)).then(
+            ({
+               data: {
+                 value,
+               }
+             }) => {
+              this.card = value;
+              this.setData();
+              this.fillData();
+              this.loading = false;
+            }
+        );
+      },
       reloadPage(){
         window.location.reload()
+      },
+      setData(){
+        this.card.options = this.card.options != undefined ? this.card.options : false;
+        // setup btn filter list
+        const btnFilterList = this.card.options.btnFilterList;
+        let filledAdvancedList = [];
+        let i = 0;
+        for ( let index in btnFilterList ) {
+          filledAdvancedList[i] = {value: index, text: btnFilterList[index]};
+          i++;
+        }
+        this.datacollection = {};
+        this.options = {};
+        this.loading = false;
+        this.buttonRefresh = this.card.options.btnRefresh;
+        this.buttonReload = this.card.options.btnReload;
+        this.btnExtLink = this.card.options.extLink != undefined ? true : false;
+        this.externalLink = this.card.options.extLink;
+        this.externalLinkIn = this.card.options.extLinkIn != undefined ? this.card.options.extLinkIn : '_self';
+        this.chartTooltips = this.card.options.tooltips != undefined ? this.card.options.tooltips : undefined;
+        this.sweetAlert = this.card.options.sweetAlert2 != undefined ? this.card.options.sweetAlert2 : undefined;
+        this.chartPlugins = this.card.options.plugins != undefined ? this.card.options.plugins : false;
+        this.chartLayout = this.card.options.layout != undefined ? this.card.options.layout :
+            {
+              padding: {
+                left: 20,
+                right: 20,
+                top: 0,
+                bottom: 10
+              }
+            };
+        this.chartLegend = this.card.options.legend != undefined ? this.card.options.legend :
+            {
+              display: true,
+              position: 'left',
+              labels: {
+                fontColor: '#7c858e',
+                fontFamily: "'Nunito'"
+              }
+            };
+        this.showAdvanceFilter = this.card.model == 'custom' || this.card.model == undefined ? false : this.card.options.btnFilter == true ? true : false;
+        this.advanceFilterSelected = this.card.options.btnFilterDefault != undefined ? this.card.options.btnFilterDefault : 'QTD';
+        this.advanceFilter = this.card.options.btnFilterList != undefined ? filledAdvancedList : [
+          { text: 'Year to Date', value: 'YTD' },
+          { text: 'Quarter to Date', value: 'QTD' },
+          { text: 'Month to Date', value: 'MTD' },
+          { text: '30 Days', value: 30 },
+          { text: '60 Days', value: 60 },
+          { text: '365 Days', value: 365 },
+        ]
       },
       fillData () {
         this.options = {

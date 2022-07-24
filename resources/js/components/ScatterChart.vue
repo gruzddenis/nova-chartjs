@@ -1,7 +1,7 @@
 <template>
     <card class="p-10">
       <div class="stay-right">
-        <a @click="fillData()" class="btn-refresh" v-show="buttonRefresh">
+        <a @click="fetch()" class="btn-refresh" v-show="buttonRefresh">
           <i class="fas fa-sync"></i>
         </a>
         <a @click="reloadPage()" class="btn-refresh" v-show="buttonReload">
@@ -21,25 +21,27 @@
 </style>
 
 <script>
-  import LineChart from '../scatter-chart.js'
+  import LineChart from '../scatter-chart.js';
+  import {Minimum} from "laravel-nova";
 
   export default {
     components: {
       LineChart
     },
     data () {
-      this.card.options = this.card.options != undefined ? this.card.options : false;
+      this.card.options =false;
       return {
         datacollection: {},
         options: {},
-        buttonRefresh: (this.card.options != undefined) ? this.card.options.btnRefresh : false,
-        buttonReload: this.card.options.btnReload,
-        btnExtLink: this.card.options.extLink != undefined ? true : false,
-        externalLink: this.card.options.extLink,
-        externalLinkIn: this.card.options.extLinkIn != undefined ? this.card.options.extLinkIn : '_self',
-        chartTooltips: this.card.options.tooltips != undefined ? this.card.options.tooltips : undefined,
-        chartLayout: this.card.options.layout != undefined ? this.card.options.layout :
-          {
+        loading: false,
+        buttonRefresh: false,
+        buttonReload: undefined,
+        btnExtLink: false,
+        externalLink: undefined,
+        externalLinkIn: '_self',
+        chartTooltips: undefined,
+        chartPlugins: false,
+        chartLayout: {
             padding: {
               left: 20,
               right: 20,
@@ -47,8 +49,7 @@
               bottom: 10
             }
           },
-        chartLegend: this.card.options.legend != undefined ? this.card.options.legend :
-          {
+        chartLegend: {
             display: true,
             position: 'left',
             labels: {
@@ -61,17 +62,67 @@
     computed: {
       checkTitle() {
         return this.card.title !== undefined ? this.card.title : 'Chart JS Integration';
+      },
+      metricEndpoint() {
+        return `/nova-api/metrics/${this.card.uriKey}`;
       }
     },
     props: [
         'card'
     ],
     mounted () {
-      this.fillData();
+      this.fetch();
     },
     methods: {
+      fetch() {
+        this.loading = true;
+        Minimum(Nova.request().get(`${this.metricEndpoint}`)).then(
+            ({
+               data: {
+                 value,
+               }
+             }) => {
+              this.card = value;
+              this.setData();
+              this.fillData();
+              this.loading = false;
+            }
+        );
+      },
       reloadPage(){
         window.location.reload()
+      },
+      setData(){
+        this.card.options = this.card.options != undefined ? this.card.options : false;
+
+        this.datacollection = {};
+        this.options = {};
+        this.loading = false;
+        this.buttonRefresh = this.card.options.btnRefresh;
+        this.buttonReload = this.card.options.btnReload;
+        this.btnExtLink = this.card.options.extLink != undefined ? true : false;
+        this.externalLink = this.card.options.extLink;
+        this.externalLinkIn = this.card.options.extLinkIn != undefined ? this.card.options.extLinkIn : '_self';
+        this.chartTooltips = this.card.options.tooltips != undefined ? this.card.options.tooltips : undefined;
+        this.chartPlugins = this.card.options.plugins != undefined ? this.card.options.plugins : false;
+        this.chartLayout = this.card.options.layout != undefined ? this.card.options.layout :
+            {
+              padding: {
+                left: 20,
+                right: 20,
+                top: 0,
+                bottom: 10
+              }
+            };
+        this.chartLegend = this.card.options.legend != undefined ? this.card.options.legend :
+            {
+              display: true,
+              position: 'left',
+              labels: {
+                fontColor: '#7c858e',
+                fontFamily: "'Nunito'"
+              }
+            };
       },
       fillData () {
         this.options = {
